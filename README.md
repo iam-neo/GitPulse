@@ -1,80 +1,79 @@
-# ✨ GitPulse — Next-Gen GitHub Activity Visualizer & Profile Duel Dashboard
+<div align="center">
+  
+  # ✨ GitPulse
+  
+  ### **Next-Generation GitHub Activity Visualizer & Profile Duel Dashboard**
+  
+  A developer-native, glassmorphic analytics dashboard built in React + Vite + Recharts.
+  
+  [![React](https://img.shields.io/badge/React-19.1-61DAFB?logo=react&logoColor=black&style=for-the-badge)](https://react.dev)
+  [![Vite](https://img.shields.io/badge/Vite-8.0-646CFF?logo=vite&logoColor=white&style=for-the-badge)](https://vite.dev)
+  [![Recharts](https://img.shields.io/badge/Recharts-3.8-22B5BF?style=for-the-badge)](https://recharts.org)
+  [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
 
-GitPulse is a developer-native, dark-themed dashboard that tracks, visualizes, and compares any public GitHub user's profile statistics, repository portfolios, language breakdowns, and public events history. 
-
-Built using **React**, **Vite**, and **Recharts**, it features a stunning, premium **glassmorphic design system** with customizable color accents, breathing radial glows, shimmering skeleton loaders, and local storage integrations.
-
----
-
-## 🚀 Key Visual & Interactive Features
-
-### ⚔️ 1. Developer VS Mode (Profile Duels)
-- Side-by-side split comparison dashboard.
-- Dual-profile statistic summaries (Stars, Followers, Public Repos).
-- Comparative verdict highlights identifying the winner in each metric with a crown emoji.
-- Recharts double bar graph visualizing comparative statistics side-by-side with accent coloring.
-
-### 🌈 2. Live Theme Customizer & Custom Accents
-- Choose between five custom accent colors: **Cyan**, **GitHub Green**, **Electric Purple**, **Hot Pink**, and **Amber**.
-- Instantly updates all visual styling, input focus borders, Recharts gradient fills, status badges, and breathing radial glows.
-- Theme accent is persisted securely in the user's browser `localStorage`.
-
-### 📦 3. Repository Explorer & Inspector Drawer
-- Full-text repository searching, dynamic language filtering, and sorting by Stars, Forks, Repo Size, and last Updated Date.
-- Clicking any repository card opens a sliding inspect drawer showing detailed metadata (default branch, open issues, creation date, watchers).
-- Copyable **HTTPS** and **SSH** git clone commands with interactive clip-to-copy button feedback.
-
-### 💡 4. Pulse Account Analytics Insights
-- **Account Age**: Dynamically formatted in years.
-- **Average Stars**: Calculates average stars across all repositories.
-- **Peak Activity Times**: Parses public event history timestamps to pinpoint the user's most active day of the week and peak hour of the day.
-
-### ⚡ 5. Connected Git Timeline Event Feed
-- Recent public activities are formatted as a vertical branch timeline.
-- Custom status dots colored by activity type (Commits, Pull Requests, Issues, Stars, Forks) with dynamic neon shadows.
-- Integrates inline commit message snippets (`📝 message`) directly into PushEvents.
-
-### 🔑 6. API Rate Tracker & PAT Configuration
-- Dynamic header badge showing live GitHub API usage (e.g., `API: 49/60`).
-- A settings gear dropdown allowing developers to input a Personal Access Token (PAT).
-- Credentials are saved locally to `localStorage` to boost rate limits up to **5,000 requests/hour**.
-
-### 🧭 7. Pulse History Bookmarks
-- Automatically caches up to 6 successfully searched profiles.
-- Displays history bookmark chips in empty states (Recent Pulses) for quick switching.
-- Keeps a breadcrumb trail of recent bookmarks active at the top of the loaded dashboard.
+</div>
 
 ---
 
-## 🎨 Premium Aesthetics System
+GitPulse visualizes any public GitHub user's profile statistics, repository portfolios, language breakdowns, and public events history in a beautiful, dark-themed dashboard. 
 
-The dashboard strictly utilizes inline CSS injection for maximum flexibility and performance:
-
-| Token | Hex Value | Usage |
-| :--- | :--- | :--- |
-| **bg-base** | `#0D1117` | Main dark background |
-| **bg-surface** | `rgba(22, 27, 34, 0.75)` | Translucent glass cards |
-| **border-base** | `rgba(255, 255, 255, 0.05)` | Card and layout borders |
-| **accent-glow** | `radial-gradient` | Breathing avatar backlight |
-| **shimmer** | `gradient-shimmer` | Pulsing content skeleton loader |
-
-- **Glassmorphism:** Subtly transparent cards (`backdrop-filter: blur(16px)`) that float over the background.
-- **Shimmer Placeholders:** Skeleton screens that pulse during query loading states, offering a smooth layout transition instead of a generic loading spinner.
-- **Breathing Glows:** Avatar profiles are backlit by slow-pulsing radial gradients corresponding to the active accent color.
+It is designed with **glassmorphism**, dynamic custom accent themes, breathing radial backglows, pulsing shimmer skeleton loaders, and a side-by-side split screen comparison mode.
 
 ---
 
-## 🛠️ Technological Stack
+## ⚡ Key Highlights & Features
 
-- **React 19** (Functional hooks, `useCallback`, `useEffect`, `useState`)
-- **Vite** (Next-generation build tool)
-- **Recharts 3** (SVG graphs with custom gradient overlays)
-- **Zero-Dependency Styling:** Pure inline styling with animations and input focus shadows injected dynamically at runtime.
+### ⚔️ Profile Comparison Duel Mode
+Toggle **VS Compare** mode to query two GitHub users side-by-side. 
+* Displays dual statistic profile summaries.
+* Awards a **winner's crown** 👑 to the user leading in public repositories, followers, or stars.
+* Shows a side-by-side double bar chart matching user color codes.
+
+### 🌈 Runtime Theme Accent Customizer
+Switch the color accents of the entire dashboard dynamically in the Settings popover:
+* **Accent Themes:** Cyan (Default), GitHub Green, Electric Purple, Hot Pink, and Solarized Amber.
+* Smoothly transitions input borders, focus outlines, button active scales, SVG backdrops, and charts.
+* Theme selection is persisted across page loads using `localStorage`.
+
+### 📦 Interactive Repository Explorer & Inspector Drawer
+* Includes **live text matching**, dynamic **language filter** dropdown, and sort tags (**Stars**, **Forks**, **Size**, and **Last Updated**).
+* Clicking any repository opens a glassmorphic Inspector Drawer showing watchers, open issues count, license info, and creation date.
+* Features copyable HTTPS and SSH clone command bars with click-to-copy feedback.
+
+### 💡 Pulse Analytics Insights
+Calculates profile constraints dynamically:
+* **Account Age:** Displays age formatted in years.
+* **Average Stars:** Average stars across the repository portfolio.
+- **Peak Activity Hours:** Parses events timestamp logs to reveal the user's peak coding day of the week and hour of the day.
+
+### 📊 Git Branch Timeline Event Feed
+- Formats recent activities into a connected vertical git branch timeline.
+- Dynamic color-coded circles with neon shadows representing event types (Commits, Pull Requests, Issues, Stars, Forks).
+- Integrates commit message snippets (`📝 message`) inside PushEvents.
 
 ---
 
-## 📦 Installation & Setup
+## 🎨 Design System & CSS Tokens
 
+The interface leverages glassmorphism and breathing transitions built purely on inline CSS injection:
+
+```css
+/* Custom properties mapping dynamically on selected accent theme */
+--accent: #00D4FF;         /* Cyan, Green, Purple, Pink, or Amber */
+--accent-fade: #00D4FF26;    /* 15% opacity focus shadow */
+```
+
+> [!NOTE]
+> All styles are injected dynamically at runtime via a custom CSS generator, avoiding bloated external stylesheets and utility class loaders.
+
+---
+
+## 🛠️ Installation & Setup
+
+### Prerequisites
+Make sure you have [Node.js](https://nodejs.org) installed.
+
+### Steps
 1. **Clone the repository:**
    ```bash
    git clone https://github.com/iam-neo/GitPulse.git
@@ -91,14 +90,27 @@ The dashboard strictly utilizes inline CSS injection for maximum flexibility and
    npm run dev
    ```
 
-4. **Build for production:**
+4. **Build the production bundle:**
    ```bash
    npm run build
    ```
-   *The optimized static assets will be output in the `dist` directory.*
+   *Optimized static assets will output to the `dist` directory.*
 
 ---
 
-## 📝 GitHub API Policy
+## 🔑 GitHub API Policy & Rate Limits
 
-Unauthenticated requests are rate-limited to **60 requests per hour** per IP address. If rate limits are reached, the app displays a helpful warning card. Enter a GitHub Personal Access Token (PAT) inside the Settings popover to raise limits immediately. All token operations are run entirely client-side.
+Public GitHub REST API endpoints limit unauthenticated requests to **60 requests per hour** per IP address. 
+
+> [!IMPORTANT]
+> If you hit this limit, click **Settings (⚙️)** in the header and paste a Personal Access Token (PAT). This raises your API capacity to **5,000 requests/hour**. Tokens are processed entirely client-side and saved securely in your browser's local storage.
+
+<details>
+<summary><b>💡 How to create a GitHub Personal Access Token (PAT)</b></summary>
+
+1. Go to your GitHub profile and navigate to **Settings** > **Developer Settings** > **Personal Access Tokens** > **Tokens (classic)**.
+2. Click **Generate new token (classic)**.
+3. Add a description (e.g., "GitPulse Dashboard") and select the expiration.
+4. *Optional:* Select the `repo` scope if you wish to query your own private repositories.
+5. Click **Generate token** and copy the code. Paste it inside the Settings popup on the GitPulse site.
+</details>
