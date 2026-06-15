@@ -41,6 +41,19 @@ const GLOBAL_CSS = `
 `;
 
 /* ─── Helpers ─── */
+function formatJoinedDate(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  return `Joined ${monthNames[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+function formatSize(kb) {
+  if (!kb) return '0 KB';
+  if (kb < 1024) return `${kb} KB`;
+  return `${(kb / 1024).toFixed(1)} MB`;
+}
+
 function timeAgo(dateStr) {
   const diff = Date.now() - new Date(dateStr).getTime();
   const m = Math.floor(diff / 60000);
@@ -184,8 +197,60 @@ export default function GitPulse() {
   const [events, setEvents] = useState([]);
   const [totalStars, setTotalStars] = useState(0);
 
-  const search = useCallback(async () => {
-    const username = query.trim();
+  const [pat, setPat] = useState(() => localStorage.getItem('gitpulse_pat') || '');
+  const [rateLimit, setRateLimit] = useState(null);
+  const [history, setHistory] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('gitpulse_history') || '[]');
+    } catch {
+      return [];
+    }
+  });
+  const [showSettings, setShowSettings] = useState(false);
+
+  // Repo Explorer State
+  const [repoSearch, setRepoSearch] = useState('');
+  const [repoSort, setRepoSort] = useState('stars');
+  const [repoLang, setRepoLang] = useState('All');
+
+  const getHeaders = useCallback(() => {
+    const headers = { Accept: 'application/vnd.github.v3+json' };
+    if (pat.trim()) {
+      headers['Authorization'] = `token ${pat.trim()}`;
+    }
+    return headers;
+  }, [pat]);
+
+  const updateRateLimit = useCallback((headers) => {
+    const limit = headers.get('x-ratelimit-limit');
+    const remaining = headers.get('x-ratelimit-remaining');
+    const reset = headers.get('x-ratelimit-reset');
+    if (limit !== null && remaining !== null) {
+      setRateLimit({
+        limit: parseInt(limit, 10),
+        remaining: parseInt(remaining, 10),
+        reset: reset ? new Date(parseInt(reset, 10) * 1000).toLocaleTimeString() : null,
+      });
+    }
+  }, []);
+
+  const fetchRateLimit = useCallback(async () => {
+    try {
+      const res = await fetch('https://api.github.com/rate_limit', { headers: getHeaders() });
+      if (res.ok) {
+        const data = await res.json();
+        setRateLimit({
+          limit: data.rate.limit,
+          remaining: data.rate.remaining,
+          reset: new Date(data.rate.reset * 1000).toLocaleTimeString(),
+        });
+      }
+    } catch (e) {
+      console.error('Failed to fetch rate limit', e);
+    }
+  }, [getHeaders]);
+
+  const searchWithUsername = useCallback(async (username) => {
     if (!username) return;
     setLoading(true);
     setError('');
@@ -193,20 +258,30 @@ export default function GitPulse() {
     setRepos([]);
     setEvents([]);
     setTotalStars(0);
+    setRepoSearch('');
+    setRepoLang('All');
 
     try {
       const [profileRes, reposRes, eventsRes] = await Promise.all([
-        fetch(`https://api.github.com/users/${username}`),
-        fetch(`https://api.github.com/users/${username}/repos?per_page=100&sort=updated`),
-        fetch(`https://api.github.com/users/${username}/events/public?per_page=100`),
+        fetch(`https://api.github.com/users/${username}`, { headers: getHeaders() }),
+        fetch(`https://api.github.com/users/${username}/repos?per_page=100&sort=updated`, { headers: getHeaders() }),
+        fetch(`https://api.github.com/users/${username}/events/public?per_page=100`, { headers: getHeaders() }),
       ]);
+
+      updateRateLimit(profileRes.headers);
 
       if (profileRes.status === 404) {
         setError(`User "${username}" not found.`);
+        window.history.pushState(null, '', window.location.pathname);
         return;
       }
       if (!profileRes.ok) {
-        setError('GitHub API error. Try again.');
+        if (profileRes.status === 403) {
+          setError('Rate limit exceeded. Click "Settings" in the header to provide a GitHub PAT.');
+        } else {
+          setError('GitHub API error. Try again.');
+        }
+        window.history.pushState(null, '', window.location.pathname);
         return;
       }
 
@@ -221,14 +296,51 @@ export default function GitPulse() {
       setRepos(safeRepos);
       setEvents(safeEvents);
       setTotalStars(safeRepos.reduce((s, r) => s + (r.stargazers_count || 0), 0));
+
+      // Update history
+      setHistory(prev => {
+        let next = prev.filter(item => item.login.toLowerCase() !== profileData.login.toLowerCase());
+        next.unshift({ login: profileData.login, avatarUrl: profileData.avatar_url });
+        next = next.slice(0, 6);
+        localStorage.setItem('gitpulse_history', JSON.stringify(next));
+        return next;
+      });
+
+      // Update URL query param
+      window.history.pushState(null, '', `?user=${profileData.login}`);
     } catch {
       setError('GitHub API error. Try again.');
+      window.history.pushState(null, '', window.location.pathname);
     } finally {
       setLoading(false);
     }
-  }, [query]);
+  }, [getHeaders, updateRateLimit]);
+
+  const search = useCallback(() => {
+    searchWithUsername(query);
+  }, [searchWithUsername, query]);
 
   const handleKey = (e) => { if (e.key === 'Enter') search(); };
+
+  const handleHistoryClick = useCallback((login) => {
+    setQuery(login);
+    searchWithUsername(login);
+  }, [searchWithUsername]);
+
+  // Load profile from URL query param on mount
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const userParam = params.get('user');
+    if (userParam) {
+      setQuery(userParam);
+      searchWithUsername(userParam);
+    }
+  }, [searchWithUsername]);
+
+  // Fetch rate limit on load and when PAT changes
+  useEffect(() => {
+    fetchRateLimit();
+  }, [fetchRateLimit]);
 
   /* ─── Derived Data ─── */
   const starData = repos
@@ -238,14 +350,31 @@ export default function GitPulse() {
     .map(r => ({ name: truncate(r.name, 15), stars: r.stargazers_count }));
 
   const langMap = {};
-  repos.slice(0, 10).forEach(r => {
+  repos.forEach(r => {
     if (r.language) langMap[r.language] = (langMap[r.language] || 0) + 1;
   });
   const langData = Object.entries(langMap)
     .sort((a, b) => b[1] - a[1])
     .map(([name, value]) => ({ name, value }));
 
-  const topRepos = [...repos].sort((a, b) => (b.stargazers_count || 0) - (a.stargazers_count || 0)).slice(0, 5);
+  const uniqueLanguages = Array.from(new Set(repos.map(r => r.language).filter(Boolean))).sort();
+
+  const filteredAndSortedRepos = repos
+    .filter(repo => {
+      const matchesSearch = repo.name.toLowerCase().includes(repoSearch.toLowerCase()) || 
+        (repo.description && repo.description.toLowerCase().includes(repoSearch.toLowerCase()));
+      const matchesLang = repoLang === 'All' || repo.language === repoLang;
+      return matchesSearch && matchesLang;
+    })
+    .sort((a, b) => {
+      if (repoSort === 'stars') return (b.stargazers_count || 0) - (a.stargazers_count || 0);
+      if (repoSort === 'forks') return (b.forks_count || 0) - (a.forks_count || 0);
+      if (repoSort === 'size') return (b.size || 0) - (a.size || 0);
+      if (repoSort === 'updated') return new Date(b.updated_at) - new Date(a.updated_at);
+      return 0;
+    });
+
+  const displayRepos = filteredAndSortedRepos.slice(0, 6);
   const recentEvents = events.slice(0, 8);
   const heatmapWeeks = buildHeatmap(events);
 
@@ -280,7 +409,162 @@ export default function GitPulse() {
           {'<gh·track />'}
         </div>
 
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center', position: 'relative' }}>
+          {rateLimit && (
+            <div
+              onClick={() => setShowSettings(!showSettings)}
+              style={{
+                fontFamily: fontMono,
+                fontSize: 11,
+                padding: '6px 10px',
+                borderRadius: 6,
+                background: rateLimit.remaining < 10 ? 'rgba(239, 68, 68, 0.15)' : T.bgSunken,
+                border: `1px solid ${rateLimit.remaining < 10 ? '#EF4444' : T.border}`,
+                color: rateLimit.remaining < 10 ? '#EF4444' : T.textSecondary,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                userSelect: 'none',
+              }}
+              title="Click to configure GitHub Token"
+            >
+              <span style={{
+                width: 6,
+                height: 6,
+                borderRadius: '50%',
+                background: rateLimit.remaining < 10 ? '#EF4444' : T.accent,
+              }} />
+              API: {rateLimit.remaining}/{rateLimit.limit}
+            </div>
+          )}
+
+          <button
+            onClick={() => setShowSettings(!showSettings)}
+            style={{
+              background: pat.trim() ? 'rgba(0, 212, 255, 0.1)' : T.bgSunken,
+              border: `1px solid ${pat.trim() ? T.accent : T.border}`,
+              color: pat.trim() ? T.accent : T.textSecondary,
+              borderRadius: 8,
+              padding: '10px 14px',
+              fontFamily: fontMono,
+              fontSize: 13,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              transition: 'all 0.2s',
+            }}
+          >
+            <span>⚙️</span> Settings
+          </button>
+
+          {showSettings && (
+            <div style={{
+              position: 'absolute',
+              top: '48px',
+              right: 0,
+              width: 320,
+              background: T.bgSurface,
+              border: `1px solid ${T.border}`,
+              borderRadius: 8,
+              padding: 16,
+              boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+              zIndex: 100,
+              animation: 'fadeIn .2s ease',
+            }}>
+              <h3 style={{ fontSize: 14, color: T.textPrimary, marginBottom: 8, fontFamily: fontMono }}>
+                GitHub API Settings
+              </h3>
+              <p style={{ fontSize: 11, color: T.textSecondary, marginBottom: 12, lineHeight: 1.4 }}>
+                GitHub limits unauthenticated requests. Provide a Personal Access Token (PAT) to increase limits to 5,000 reqs/hr.
+              </p>
+              
+              <div style={{ marginBottom: 12 }}>
+                <label style={{ display: 'block', fontSize: 11, color: T.textMuted, marginBottom: 4, fontFamily: fontMono }}>
+                  Personal Access Token (PAT)
+                </label>
+                <input
+                  type="password"
+                  value={pat}
+                  onChange={(e) => setPat(e.target.value)}
+                  placeholder="ghp_..."
+                  style={{
+                    width: '100%',
+                    background: T.bgSunken,
+                    border: `1px solid ${T.border}`,
+                    borderRadius: 6,
+                    padding: '8px 10px',
+                    color: T.textPrimary,
+                    fontFamily: fontMono,
+                    fontSize: 12,
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+                <button
+                  onClick={() => {
+                    localStorage.setItem('gitpulse_pat', pat.trim());
+                    fetchRateLimit();
+                    setShowSettings(false);
+                  }}
+                  style={{
+                    flex: 1,
+                    background: T.accent,
+                    color: T.bgBase,
+                    border: 'none',
+                    borderRadius: 6,
+                    padding: '6px 12px',
+                    fontFamily: fontMono,
+                    fontSize: 12,
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  SAVE
+                </button>
+                <button
+                  onClick={() => {
+                    setPat('');
+                    localStorage.removeItem('gitpulse_pat');
+                    setTimeout(() => fetchRateLimit(), 0);
+                    setShowSettings(false);
+                  }}
+                  style={{
+                    background: 'transparent',
+                    border: `1px solid ${T.border}`,
+                    color: T.textSecondary,
+                    borderRadius: 6,
+                    padding: '6px 12px',
+                    fontFamily: fontMono,
+                    fontSize: 12,
+                    cursor: 'pointer',
+                  }}
+                >
+                  CLEAR
+                </button>
+              </div>
+
+              {rateLimit && (
+                <div style={{
+                  borderTop: `1px solid ${T.border}`,
+                  paddingTop: 8,
+                  fontSize: 11,
+                  fontFamily: fontMono,
+                  color: T.textMuted,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 3,
+                }}>
+                  <div>Limit: {rateLimit.limit} requests/hr</div>
+                  <div>Remaining: {rateLimit.remaining}</div>
+                  {rateLimit.reset && <div>Resets at: {rateLimit.reset}</div>}
+                </div>
+              )}
+            </div>
+          )}
+
           <input
             id="search-input"
             value={query}
@@ -295,7 +579,7 @@ export default function GitPulse() {
               color: T.textPrimary,
               fontFamily: fontBody,
               fontSize: 14,
-              width: 280,
+              width: 240,
               transition: 'border-color .2s, box-shadow .2s',
             }}
           />
@@ -328,7 +612,7 @@ export default function GitPulse() {
         {!loading && !error && !profile && (
           <div style={{
             textAlign: 'center',
-            marginTop: 120,
+            marginTop: 100,
             animation: 'fadeIn .5s ease',
           }}>
             <div style={{ fontSize: 64, marginBottom: 16 }}>⌨️</div>
@@ -344,11 +628,70 @@ export default function GitPulse() {
               fontSize: 16,
               color: T.textSecondary,
               maxWidth: 420,
-              margin: '0 auto',
+              margin: '0 auto 32px',
               lineHeight: 1.6,
             }}>
               Enter a username above to visualize activity, repos, and language stats.
             </p>
+
+            {/* History Bookmarks in Empty State */}
+            {history.length > 0 && (
+              <div style={{ maxWidth: 500, margin: '0 auto', animation: 'fadeIn .4s ease' }}>
+                <h3 style={{
+                  fontSize: 11,
+                  fontWeight: 600,
+                  color: T.textMuted,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.08em',
+                  marginBottom: 16,
+                  fontFamily: fontMono,
+                }}>
+                  Recent Pulses
+                </h3>
+                <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
+                  {history.map((item) => (
+                    <div
+                      key={item.login}
+                      onClick={() => handleHistoryClick(item.login)}
+                      style={{
+                        background: T.bgSurface,
+                        border: `1px solid ${T.border}`,
+                        borderRadius: 24,
+                        padding: '6px 14px 6px 6px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        cursor: 'pointer',
+                        transition: 'all .2s ease',
+                        userSelect: 'none',
+                      }}
+                      onMouseEnter={e => {
+                        e.currentTarget.style.borderColor = T.accent;
+                        e.currentTarget.style.transform = 'translateY(-2px)';
+                      }}
+                      onMouseLeave={e => {
+                        e.currentTarget.style.borderColor = T.border;
+                        e.currentTarget.style.transform = 'translateY(0)';
+                      }}
+                    >
+                      <img
+                        src={item.avatarUrl}
+                        alt={item.login}
+                        style={{ width: 24, height: 24, borderRadius: '50%' }}
+                      />
+                      <span style={{
+                        fontSize: 12,
+                        fontFamily: fontMono,
+                        color: T.textPrimary,
+                        fontWeight: 600,
+                      }}>
+                        {item.login}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -403,6 +746,43 @@ export default function GitPulse() {
         {profile && !loading && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
+            {/* Recent History row above profile card */}
+            {history.length > 1 && (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+                fontSize: 12,
+                fontFamily: fontMono,
+                color: T.textMuted,
+                animation: 'fadeIn .3s ease',
+              }}>
+                <span>Recent Pulses:</span>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {history.map((item) => (
+                    <span
+                      key={item.login}
+                      onClick={() => handleHistoryClick(item.login)}
+                      style={{
+                        color: item.login.toLowerCase() === profile.login.toLowerCase() ? T.accent : T.textSecondary,
+                        cursor: 'pointer',
+                        textDecoration: item.login.toLowerCase() === profile.login.toLowerCase() ? 'underline' : 'none',
+                        transition: 'color .15s',
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.color = T.accent}
+                      onMouseLeave={e => {
+                        if (item.login.toLowerCase() !== profile.login.toLowerCase()) {
+                          e.currentTarget.style.color = T.textSecondary;
+                        }
+                      }}
+                    >
+                      {item.login}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* ── A. Profile Card ── */}
             <div style={{
               ...cardStyle,
@@ -429,8 +809,35 @@ export default function GitPulse() {
                   color: T.textPrimary,
                   lineHeight: 1.2,
                   marginBottom: 2,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  flexWrap: 'wrap',
                 }}>
                   {profile.name || profile.login}
+                  {profile.hireable && (
+                    <span style={{
+                      background: 'rgba(57, 211, 83, 0.1)',
+                      border: `1px solid ${T.greenVivid}`,
+                      borderRadius: 12,
+                      padding: '2px 8px',
+                      fontSize: 10,
+                      color: T.greenVivid,
+                      fontWeight: 600,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 4,
+                      animation: 'pulse 2s infinite',
+                    }}>
+                      <span style={{
+                        width: 5,
+                        height: 5,
+                        borderRadius: '50%',
+                        background: T.greenVivid,
+                      }} />
+                      Available for Hire
+                    </span>
+                  )}
                 </h1>
                 <div style={{
                   fontFamily: fontMono,
@@ -445,12 +852,72 @@ export default function GitPulse() {
                     fontSize: 14,
                     color: T.textSecondary,
                     lineHeight: 1.5,
-                    marginBottom: 16,
+                    marginBottom: 12,
                     maxWidth: 550,
                   }}>
                     {profile.bio}
                   </p>
                 )}
+
+                {/* Social details */}
+                <div style={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: '8px 20px',
+                  marginBottom: 16,
+                  fontSize: 13,
+                  color: T.textSecondary,
+                }}>
+                  {profile.company && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span>💼</span>
+                      <span style={{ color: T.textPrimary }}>{profile.company}</span>
+                    </div>
+                  )}
+                  {profile.location && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span>📍</span>
+                      <span style={{ color: T.textPrimary }}>{profile.location}</span>
+                    </div>
+                  )}
+                  {profile.blog && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span>🔗</span>
+                      <a href={profile.blog.startsWith('http') ? profile.blog : `https://${profile.blog}`}
+                         target="_blank"
+                         rel="noopener noreferrer"
+                         style={{ color: T.accent, textDecoration: 'none' }}>
+                        {truncate(profile.blog.replace(/^https?:\/\/(www\.)?/, ''), 25)}
+                      </a>
+                    </div>
+                  )}
+                  {profile.twitter_username && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span>🐦</span>
+                      <a href={`https://twitter.com/${profile.twitter_username}`}
+                         target="_blank"
+                         rel="noopener noreferrer"
+                         style={{ color: T.accent, textDecoration: 'none' }}>
+                        @{profile.twitter_username}
+                      </a>
+                    </div>
+                  )}
+                  {profile.email && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span>✉️</span>
+                      <a href={`mailto:${profile.email}`}
+                         style={{ color: T.accent, textDecoration: 'none' }}>
+                        {profile.email}
+                      </a>
+                    </div>
+                  )}
+                  {profile.created_at && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span>📅</span>
+                      <span>{formatJoinedDate(profile.created_at)}</span>
+                    </div>
+                  )}
+                </div>
 
                 {/* Stat Pills */}
                 <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
@@ -491,20 +958,6 @@ export default function GitPulse() {
                   ))}
                 </div>
               </div>
-
-              {/* Location */}
-              {profile.location && (
-                <div style={{
-                  position: 'absolute',
-                  top: 24,
-                  right: 24,
-                  fontFamily: fontMono,
-                  fontSize: 13,
-                  color: T.textSecondary,
-                }}>
-                  📍 {profile.location}
-                </div>
-              )}
             </div>
 
             {/* ── B. Activity Heatmap ── */}
@@ -646,82 +1099,179 @@ export default function GitPulse() {
                 )}
               </div>
 
-              {/* Top Repositories */}
+              {/* Top Repositories Explorer */}
               <div style={cardStyle}>
-                <div style={sectionTitle}>
+                <div style={{
+                  ...sectionTitle,
+                  marginBottom: 8,
+                }}>
                   <span style={{ fontSize: 16 }}>📦</span>
-                  Top Repositories
+                  Repository Explorer
                 </div>
+
+                <div style={{
+                  fontSize: 11,
+                  fontFamily: fontMono,
+                  color: T.textMuted,
+                  marginBottom: 12,
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}>
+                  <span>Search, filter, and sort repositories</span>
+                  <span>
+                    Showing {displayRepos.length} of {filteredAndSortedRepos.length}
+                  </span>
+                </div>
+
+                {/* Repo Filters Panel */}
+                <div style={{
+                  display: 'flex',
+                  gap: 8,
+                  marginBottom: 16,
+                  flexWrap: 'wrap',
+                }}>
+                  {/* Search Input */}
+                  <input
+                    value={repoSearch}
+                    onChange={(e) => setRepoSearch(e.target.value)}
+                    placeholder="Search repos..."
+                    style={{
+                      flex: '1 1 150px',
+                      background: T.bgSunken,
+                      border: `1px solid ${T.border}`,
+                      borderRadius: 6,
+                      padding: '8px 12px',
+                      color: T.textPrimary,
+                      fontFamily: fontBody,
+                      fontSize: 12,
+                      transition: 'border-color .2s',
+                    }}
+                  />
+                  
+                  {/* Language Selector */}
+                  <select
+                    value={repoLang}
+                    onChange={(e) => setRepoLang(e.target.value)}
+                    style={{
+                      flex: '1 1 100px',
+                      background: T.bgSunken,
+                      border: `1px solid ${T.border}`,
+                      borderRadius: 6,
+                      padding: '8px',
+                      color: T.textPrimary,
+                      fontFamily: fontBody,
+                      fontSize: 12,
+                      cursor: 'pointer',
+                      outline: 'none',
+                    }}
+                  >
+                    <option value="All">All Languages</option>
+                    {uniqueLanguages.map(lang => (
+                      <option key={lang} value={lang}>{lang}</option>
+                    ))}
+                  </select>
+
+                  {/* Sort Selector */}
+                  <select
+                    value={repoSort}
+                    onChange={(e) => setRepoSort(e.target.value)}
+                    style={{
+                      flex: '1 1 100px',
+                      background: T.bgSunken,
+                      border: `1px solid ${T.border}`,
+                      borderRadius: 6,
+                      padding: '8px',
+                      color: T.textPrimary,
+                      fontFamily: fontBody,
+                      fontSize: 12,
+                      cursor: 'pointer',
+                      outline: 'none',
+                    }}
+                  >
+                    <option value="stars">⭐ Stars</option>
+                    <option value="forks">🍴 Forks</option>
+                    <option value="size">💾 Size</option>
+                    <option value="updated">📅 Updated</option>
+                  </select>
+                </div>
+
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {topRepos.map(repo => (
-                    <div
-                      key={repo.id}
-                      id={`repo-${repo.name}`}
-                      onClick={() => window.open(repo.html_url, '_blank')}
-                      style={{
-                        background: T.bgSunken,
-                        border: `1px solid ${T.border}`,
-                        borderRadius: 8,
-                        padding: '14px 16px',
-                        cursor: 'pointer',
-                        transition: 'border-color .2s, transform .15s',
-                      }}
-                      onMouseEnter={e => {
-                        e.currentTarget.style.borderColor = T.borderHover;
-                        e.currentTarget.style.transform = 'translateY(-1px)';
-                      }}
-                      onMouseLeave={e => {
-                        e.currentTarget.style.borderColor = T.border;
-                        e.currentTarget.style.transform = 'translateY(0)';
-                      }}
-                    >
-                      <div style={{
-                        fontFamily: fontMono,
-                        fontSize: 14,
-                        fontWeight: 600,
-                        color: T.accent,
-                        marginBottom: 4,
-                      }}>
-                        {repo.name}
-                      </div>
-                      {repo.description && (
+                  {displayRepos.map(repo => {
+                    const licenseName = repo.license?.spdx_id || repo.license?.name;
+                    return (
+                      <div
+                        key={repo.id}
+                        id={`repo-${repo.name}`}
+                        onClick={() => window.open(repo.html_url, '_blank')}
+                        style={{
+                          background: T.bgSunken,
+                          border: `1px solid ${T.border}`,
+                          borderRadius: 8,
+                          padding: '14px 16px',
+                          cursor: 'pointer',
+                          transition: 'border-color .2s, transform .15s',
+                        }}
+                        onMouseEnter={e => {
+                          e.currentTarget.style.borderColor = T.borderHover;
+                          e.currentTarget.style.transform = 'translateY(-1px)';
+                        }}
+                        onMouseLeave={e => {
+                          e.currentTarget.style.borderColor = T.border;
+                          e.currentTarget.style.transform = 'translateY(0)';
+                        }}
+                      >
                         <div style={{
-                          fontSize: 13,
-                          color: T.textSecondary,
-                          lineHeight: 1.4,
-                          marginBottom: 10,
+                          fontFamily: fontMono,
+                          fontSize: 14,
+                          fontWeight: 600,
+                          color: T.accent,
+                          marginBottom: 4,
                         }}>
-                          {truncate(repo.description, 80)}
+                          {repo.name}
                         </div>
-                      )}
-                      <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 14,
-                        fontSize: 12,
-                        color: T.textMuted,
-                        fontFamily: fontMono,
-                      }}>
-                        {repo.language && (
-                          <span style={{
-                            background: T.greenDark,
-                            color: T.greenVivid,
-                            padding: '2px 8px',
-                            borderRadius: 12,
-                            fontSize: 11,
-                            fontWeight: 600,
+                        {repo.description && (
+                          <div style={{
+                            fontSize: 13,
+                            color: T.textSecondary,
+                            lineHeight: 1.4,
+                            marginBottom: 10,
                           }}>
-                            {repo.language}
-                          </span>
+                            {truncate(repo.description, 80)}
+                          </div>
                         )}
-                        <span>⭐ {repo.stargazers_count?.toLocaleString()}</span>
-                        <span>🍴 {repo.forks_count?.toLocaleString()}</span>
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 12,
+                          fontSize: 11,
+                          color: T.textMuted,
+                          fontFamily: fontMono,
+                          flexWrap: 'wrap',
+                        }}>
+                          {repo.language && (
+                            <span style={{
+                              background: 'rgba(0, 212, 255, 0.1)',
+                              color: T.accent,
+                              padding: '2px 8px',
+                              borderRadius: 12,
+                              fontSize: 10,
+                              fontWeight: 600,
+                            }}>
+                              {repo.language}
+                            </span>
+                          )}
+                          <span>⭐ {repo.stargazers_count?.toLocaleString() || 0}</span>
+                          <span>🍴 {repo.forks_count?.toLocaleString() || 0}</span>
+                          <span>💾 {formatSize(repo.size)}</span>
+                          {licenseName && <span>📄 {licenseName}</span>}
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                  {topRepos.length === 0 && (
+                    );
+                  })}
+                  {filteredAndSortedRepos.length === 0 && (
                     <div style={{ color: T.textMuted, fontFamily: fontMono, fontSize: 13, textAlign: 'center', padding: 40 }}>
-                      No repositories found
+                      No matching repositories found
                     </div>
                   )}
                 </div>
