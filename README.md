@@ -1,86 +1,79 @@
-# GitPulse — GitHub Activity Tracker & Visualizer
+# ✨ GitPulse — Next-Gen GitHub Activity Visualizer & Profile Duel Dashboard
 
-GitPulse is a modern, developer-native, dark-themed dashboard that tracks and visualizes any public GitHub user's profile statistics, repository details, language breakdown, and public event history. It is built using **React**, **Vite**, and **Recharts**, querying the public GitHub REST API with no authentication required.
+GitPulse is a developer-native, dark-themed dashboard that tracks, visualizes, and compares any public GitHub user's profile statistics, repository portfolios, language breakdowns, and public events history. 
 
----
-
-## Features
-
-### 1. Unified Search Header
-- Type any public GitHub username and hit `Enter` or click **SEARCH**.
-- Persistent navigation bar featuring the signature `<gh·track />` logo.
-
-### 2. Rich User Profile Card
-- Displays user avatar (with primary cyan accent border), full name, username, bio, and location (📍).
-- Key stat metrics presented in custom pills:
-  - **Public Repositories**
-  - **Followers**
-  - **Following**
-  - **Total Stars** (aggregated across all repositories)
-
-### 3. Interactive Activity Heatmap
-- Visualizes public contribution events from the **last 6 months** (26 weeks × 7 days).
-- Custom logic aligns starting dates to Sunday and walks forward day-by-day.
-- Grid cells are dynamically colored based on event intensity:
-  - `0 events` → Sunken Base (`#161B22`)
-  - `1–2 events` → Dark Green (`#0E4429`)
-  - `3–5 events` → Mid Green (`#006D32`)
-  - `6–9 events` → Bright Green (`#26A641`)
-  - `10+ events` → Vivid Green (`#39D353`)
-- Interactive hover transitions (scaling effect) and native HTML tooltips showing raw date and event count.
-- Complete color legend matches the GitHub style.
-
-### 4. Data-Dense Charting
-- **Stars by Repository**: Recharts Bar Chart showcasing the top 8 repositories sorted by star count, featuring angled X-axis labels and a custom dark-themed tooltip.
-- **Language Breakdown**: Recharts Pie Chart showing the distribution of programming languages across the top 10 updated repositories, featuring direct percentage labels on segments and a responsive color legend.
-
-### 5. Repository & Activity Feed
-- **Top Repositories**: Lists the top 5 repositories sorted by star count. Features:
-  - Custom hover micro-animations (card translate/lift).
-  - Language pills.
-  - Star & fork counts.
-  - Click-through navigation to open the repository in a new tab.
-- **Recent Activity**: Stream of the last 8 public events (commits, pull requests, issues, forks, stars, and creations) with parsed descriptive copy and relative timestamps (e.g., `Xm ago`, `Xh ago`, `Xd ago`).
+Built using **React**, **Vite**, and **Recharts**, it features a stunning, premium **glassmorphic design system** with customizable color accents, breathing radial glows, shimmering skeleton loaders, and local storage integrations.
 
 ---
 
-## Design System
+## 🚀 Key Visual & Interactive Features
 
-The application strictly implements a custom color palette tailored for developers:
+### ⚔️ 1. Developer VS Mode (Profile Duels)
+- Side-by-side split comparison dashboard.
+- Dual-profile statistic summaries (Stars, Followers, Public Repos).
+- Comparative verdict highlights identifying the winner in each metric with a crown emoji.
+- Recharts double bar graph visualizing comparative statistics side-by-side with accent coloring.
 
-| Token | Value | Usage |
+### 🌈 2. Live Theme Customizer & Custom Accents
+- Choose between five custom accent colors: **Cyan**, **GitHub Green**, **Electric Purple**, **Hot Pink**, and **Amber**.
+- Instantly updates all visual styling, input focus borders, Recharts gradient fills, status badges, and breathing radial glows.
+- Theme accent is persisted securely in the user's browser `localStorage`.
+
+### 📦 3. Repository Explorer & Inspector Drawer
+- Full-text repository searching, dynamic language filtering, and sorting by Stars, Forks, Repo Size, and last Updated Date.
+- Clicking any repository card opens a sliding inspect drawer showing detailed metadata (default branch, open issues, creation date, watchers).
+- Copyable **HTTPS** and **SSH** git clone commands with interactive clip-to-copy button feedback.
+
+### 💡 4. Pulse Account Analytics Insights
+- **Account Age**: Dynamically formatted in years.
+- **Average Stars**: Calculates average stars across all repositories.
+- **Peak Activity Times**: Parses public event history timestamps to pinpoint the user's most active day of the week and peak hour of the day.
+
+### ⚡ 5. Connected Git Timeline Event Feed
+- Recent public activities are formatted as a vertical branch timeline.
+- Custom status dots colored by activity type (Commits, Pull Requests, Issues, Stars, Forks) with dynamic neon shadows.
+- Integrates inline commit message snippets (`📝 message`) directly into PushEvents.
+
+### 🔑 6. API Rate Tracker & PAT Configuration
+- Dynamic header badge showing live GitHub API usage (e.g., `API: 49/60`).
+- A settings gear dropdown allowing developers to input a Personal Access Token (PAT).
+- Credentials are saved locally to `localStorage` to boost rate limits up to **5,000 requests/hour**.
+
+### 🧭 7. Pulse History Bookmarks
+- Automatically caches up to 6 successfully searched profiles.
+- Displays history bookmark chips in empty states (Recent Pulses) for quick switching.
+- Keeps a breadcrumb trail of recent bookmarks active at the top of the loaded dashboard.
+
+---
+
+## 🎨 Premium Aesthetics System
+
+The dashboard strictly utilizes inline CSS injection for maximum flexibility and performance:
+
+| Token | Hex Value | Usage |
 | :--- | :--- | :--- |
-| **bg-base** | `#0D1117` | App background |
-| **bg-surface** | `#161B22` | Cards, Header background |
-| **bg-sunken** | `#0D1117` | Nested elements, stat pills |
-| **border** | `#21262D` | Cards, element borders |
-| **border-hover**| `#30363D` | Hover states |
-| **accent** | `#00D4FF` | Primary cyan accent |
-| **text-primary**| `#F0F6FC` | Headings, primary content |
-| **text-secondary**|`#8B949E` | Labels, descriptions |
-| **text-muted** | `#6E7681` | Timestamps, minor info |
-| **green-dark** | `#0E4429` | Heatmap low / badge background |
-| **green-mid** | `#006D32` | Heatmap low-mid |
-| **green-bright**| `#26A641` | Heatmap mid-high |
-| **green-vivid** | `#39D353` | Heatmap max / badge text |
+| **bg-base** | `#0D1117` | Main dark background |
+| **bg-surface** | `rgba(22, 27, 34, 0.75)` | Translucent glass cards |
+| **border-base** | `rgba(255, 255, 255, 0.05)` | Card and layout borders |
+| **accent-glow** | `radial-gradient` | Breathing avatar backlight |
+| **shimmer** | `gradient-shimmer` | Pulsing content skeleton loader |
+
+- **Glassmorphism:** Subtly transparent cards (`backdrop-filter: blur(16px)`) that float over the background.
+- **Shimmer Placeholders:** Skeleton screens that pulse during query loading states, offering a smooth layout transition instead of a generic loading spinner.
+- **Breathing Glows:** Avatar profiles are backlit by slow-pulsing radial gradients corresponding to the active accent color.
 
 ---
 
-## Technical Stack & Architecture
+## 🛠️ Technological Stack
 
-- **React 19** (Functional Components, `useState`, `useEffect`, `useCallback`)
-- **Vite** (Next-generation frontend toolchain)
-- **Recharts 3** (SVG Charts)
-- **Inline Styling**: Zero external CSS stylesheets, CSS modules, or Utility classes. Custom CSS styling rules (such as Webkit scrollbars, keyframe animations, and input focus rings) are injected at runtime via an inline `<style>` element.
+- **React 19** (Functional hooks, `useCallback`, `useEffect`, `useState`)
+- **Vite** (Next-generation build tool)
+- **Recharts 3** (SVG graphs with custom gradient overlays)
+- **Zero-Dependency Styling:** Pure inline styling with animations and input focus shadows injected dynamically at runtime.
 
 ---
 
-## Installation & Setup
-
-### Prerequisites
-Make sure you have [Node.js](https://nodejs.org) installed.
-
-### Steps
+## 📦 Installation & Setup
 
 1. **Clone the repository:**
    ```bash
@@ -98,20 +91,14 @@ Make sure you have [Node.js](https://nodejs.org) installed.
    npm run dev
    ```
 
-4. **Build the production bundle:**
+4. **Build for production:**
    ```bash
    npm run build
    ```
-   *The built site will be generated in the `dist` directory.*
+   *The optimized static assets will be output in the `dist` directory.*
 
 ---
 
-## API Limits & Usage
+## 📝 GitHub API Policy
 
-This app queries public API endpoints:
-- `https://api.github.com/users/{username}`
-- `https://api.github.com/users/{username}/repos`
-- `https://api.github.com/users/{username}/events/public`
-
-> [!NOTE]
-> GitHub rate-limits unauthenticated API requests to **60 requests per hour** per IP address. If the application stops returning data or shows a "GitHub API error", you may have hit the public rate limit.
+Unauthenticated requests are rate-limited to **60 requests per hour** per IP address. If rate limits are reached, the app displays a helpful warning card. Enter a GitHub Personal Access Token (PAT) inside the Settings popover to raise limits immediately. All token operations are run entirely client-side.
