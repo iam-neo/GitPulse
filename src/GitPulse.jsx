@@ -52,6 +52,11 @@ const getGlobalCss = (accentColor) => `
   }
   @keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
   @keyframes popIn { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  @keyframes progress {
+    0% { width: 0%; opacity: 1; }
+    80% { width: 90%; opacity: 1; }
+    100% { width: 100%; opacity: 0; }
+  }
 `;
 
 /* ─── Helpers ─── */
@@ -792,6 +797,19 @@ export default function GitPulse() {
   /* ═══ RENDER ═══ */
   return (
     <div style={{ minHeight: '100vh', background: T.bgBase, fontFamily: fontBody, color: T.textPrimary }}>
+      {loading && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          height: 2,
+          background: accent,
+          zIndex: 9999,
+          animation: 'progress 1.5s ease-out forwards',
+          boxShadow: `0 0 8px ${accent}`,
+          pointerEvents: 'none',
+        }} />
+      )}
       <style>{getGlobalCss(accent)}</style>
 
       {/* ─── Header ─── */}
@@ -1253,14 +1271,14 @@ export default function GitPulse() {
                     {/* Glowing radial backdrop */}
                     <div style={{
                       position: 'absolute',
-                      width: 150,
-                      height: 150,
+                      width: 160,
+                      height: 160,
                       borderRadius: '50%',
-                      background: `radial-gradient(circle, ${accent}2a 0%, transparent 70%)`,
-                      top: -40,
-                      left: -40,
+                      background: `radial-gradient(circle, ${accent}33 0%, transparent 70%)`,
+                      top: -20,
+                      left: -20,
                       zIndex: 0,
-                      animation: 'breathingGlow 3s infinite ease-in-out',
+                      animation: 'breathingGlow 4s infinite ease-in-out',
                       pointerEvents: 'none',
                     }} />
 
@@ -1303,14 +1321,14 @@ export default function GitPulse() {
                     
                     <div style={{
                       position: 'absolute',
-                      width: 150,
-                      height: 150,
+                      width: 160,
+                      height: 160,
                       borderRadius: '50%',
-                      background: `radial-gradient(circle, ${userBColor}2a 0%, transparent 70%)`,
-                      top: -40,
-                      left: -40,
+                      background: `radial-gradient(circle, ${userBColor}33 0%, transparent 70%)`,
+                      top: -20,
+                      left: -20,
                       zIndex: 0,
-                      animation: 'breathingGlow 3s infinite ease-in-out',
+                      animation: 'breathingGlow 4s infinite ease-in-out',
                       pointerEvents: 'none',
                     }} />
 
@@ -1524,8 +1542,8 @@ export default function GitPulse() {
                     height: 160,
                     borderRadius: '50%',
                     background: `radial-gradient(circle, ${accent}33 0%, transparent 70%)`,
-                    top: -40,
-                    left: -40,
+                    top: -20,
+                    left: -20,
                     zIndex: 0,
                     animation: 'breathingGlow 4s infinite ease-in-out',
                     pointerEvents: 'none',
@@ -2168,8 +2186,25 @@ export default function GitPulse() {
         color: T.textMuted,
         fontSize: 12,
         fontFamily: fontMono,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 6,
+        alignItems: 'center',
       }}>
-        GitPulse — built with React & Recharts
+        <div style={{ color: accent, fontWeight: 700, fontSize: 14 }}>
+          {'<git·pulse />'}
+        </div>
+        <div>
+          v2.0.0 · Built with React & Recharts ·{' '}
+          <a
+            href="https://github.com/iam-neo/GitPulse"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ color: accent, textDecoration: 'none' }}
+          >
+            View on GitHub ↗
+          </a>
+        </div>
       </footer>
     </div>
   );
