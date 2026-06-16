@@ -1,7 +1,7 @@
 {
   "name": "gitpulse",
   "private": true,
-  "version": "1.0.0",
+  "version": "2.1.0",
   "type": "module",
   "description": "GitHub Activity Tracker & Visualizer",
   "scripts": {
@@ -14,6 +14,7 @@
     "vite": "^8.0.12"
   },
   "dependencies": {
+    "html2canvas": "^1.4.1",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-is": "^19.2.7",
